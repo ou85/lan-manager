@@ -120,6 +120,7 @@ async fn main() -> Result<()> {
                     },
                     devices: vec![],
                     subnets: vec![],
+                    ports: vec![],
                 },
             )?;
             protect(&file, 0o600)?;

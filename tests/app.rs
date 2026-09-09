@@ -20,6 +20,7 @@ fn snapshot() -> Snapshot {
         },
         devices: vec![],
         subnets: vec![],
+        ports: vec![],
     }
 }
 fn fixture() -> (tempfile::TempDir, AppState) {
@@ -80,6 +81,9 @@ async fn login(app: &axum::Router) -> (String, String) {
 fn device(id: &str, ip: &str, subnet: &str, parent: &str) -> Value {
     json!({"id":id,"name":"lab-node","type":"Server","ip":ip,"subnet_id":subnet,"parent":parent,"status":"In service"})
 }
+fn service_port(id: &str, port: u16) -> Value {
+    json!({"id":id,"port":port,"protocol":"TCP","host":"ns2","service":"Home Lab Manager","access":"Tailscale","status":"Active"})
+}
 #[tokio::test]
 async fn auth_csrf_crud_and_restart_persistence() {
     let (dir, state) = fixture();
@@ -137,6 +141,20 @@ async fn auth_csrf_crud_and_restart_persistence() {
         .status(),
         StatusCode::OK
     );
+    let port = uuid::Uuid::new_v4().to_string();
+    assert_eq!(
+        call(
+            &app,
+            "POST",
+            "/api/ports",
+            Some(service_port(&port, 8088)),
+            Some(&cookie),
+            Some(&csrf)
+        )
+        .await
+        .status(),
+        StatusCode::OK
+    );
     let duplicate = device(&uuid::Uuid::new_v4().to_string(), "10.0.3.83", &subnet, "");
     assert_eq!(
         call(
@@ -167,6 +185,7 @@ async fn auth_csrf_crud_and_restart_persistence() {
     drop(app);
     let store = Store::open(&dir.path().join("lab.redb")).unwrap();
     assert_eq!(store.read().unwrap().devices.len(), 1);
+    assert_eq!(store.read().unwrap().ports.len(), 1);
     let app = server::app(AppState::new(store, false));
     assert_eq!(
         call(&app, "GET", "/api/inventory", None, Some(&cookie), None)
@@ -188,6 +207,19 @@ async fn auth_csrf_crud_and_restart_persistence() {
         .status(),
         StatusCode::OK
     );
+    let result = body(
+        call(
+            &app,
+            "DELETE",
+            &format!("/api/ports/{port}"),
+            None,
+            Some(&cookie),
+            Some(&csrf),
+        )
+        .await,
+    )
+    .await;
+    assert!(result["ports"].as_array().unwrap().is_empty());
     assert_eq!(
         call(
             &app,

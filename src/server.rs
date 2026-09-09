@@ -1,6 +1,6 @@
 use crate::{
     auth,
-    model::{Device, Inventory, Subnet},
+    model::{Device, Inventory, ServicePort, Subnet},
     storage::Store,
 };
 use axum::{
@@ -340,6 +340,49 @@ async fn delete_subnet(
     .map_err(bad)?;
     Ok(Json(s.into()))
 }
+async fn save_port(
+    State(state): State<AppState>,
+    Json(mut port): Json<ServicePort>,
+) -> ApiResult<Json<Inventory>> {
+    if port.id.is_empty() {
+        port.id = uuid::Uuid::new_v4().to_string();
+    }
+    port.protocol = port.protocol.trim().to_ascii_uppercase();
+    port.host = port.host.trim().into();
+    port.service = port.service.trim().into();
+    port.access = port.access.trim().into();
+    port.url = port.url.trim().into();
+    port.status = port.status.trim().into();
+    let s = tokio::task::spawn_blocking(move || {
+        state.store.update(|s| {
+            if let Some(old) = s.ports.iter_mut().find(|x| x.id == port.id) {
+                *old = port;
+            } else {
+                s.ports.push(port);
+            }
+            Ok(())
+        })
+    })
+    .await
+    .map_err(internal)?
+    .map_err(bad)?;
+    Ok(Json(s.into()))
+}
+async fn delete_port(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Inventory>> {
+    let s = tokio::task::spawn_blocking(move || {
+        state.store.update(|s| {
+            s.ports.retain(|p| p.id != id);
+            Ok(())
+        })
+    })
+    .await
+    .map_err(internal)?
+    .map_err(bad)?;
+    Ok(Json(s.into()))
+}
 async fn assets(req: Request) -> Response {
     if !matches!(*req.method(), Method::GET | Method::HEAD) {
         return StatusCode::METHOD_NOT_ALLOWED.into_response();
@@ -381,6 +424,8 @@ pub fn app(state: AppState) -> Router {
         .route("/devices/{id}", axum::routing::delete(delete_device))
         .route("/subnets", post(save_subnet))
         .route("/subnets/{id}", axum::routing::delete(delete_subnet))
+        .route("/ports", post(save_port))
+        .route("/ports/{id}", axum::routing::delete(delete_port))
         .route_layer(middleware::from_fn_with_state(state.clone(), protect));
     Router::new()
         .nest("/api", protected.route("/login", post(login)))

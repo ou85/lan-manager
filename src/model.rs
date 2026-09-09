@@ -45,23 +45,41 @@ pub struct Subnet {
     #[serde(default)]
     pub vlan: Option<u16>,
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ServicePort {
+    pub id: String,
+    pub port: u16,
+    pub protocol: String,
+    pub host: String,
+    pub service: String,
+    pub access: String,
+    #[serde(default)]
+    pub url: String,
+    pub status: String,
+    #[serde(default)]
+    pub notes: String,
+}
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Snapshot {
     pub schema_version: u32,
     pub credentials: Credentials,
     pub devices: Vec<Device>,
     pub subnets: Vec<Subnet>,
+    #[serde(default)]
+    pub ports: Vec<ServicePort>,
 }
 #[derive(Serialize)]
 pub struct Inventory {
     pub devices: Vec<Device>,
     pub subnets: Vec<Subnet>,
+    pub ports: Vec<ServicePort>,
 }
 impl From<Snapshot> for Inventory {
     fn from(s: Snapshot) -> Self {
         Self {
             devices: s.devices,
             subnets: s.subnets,
+            ports: s.ports,
         }
     }
 }
@@ -75,7 +93,10 @@ pub fn validate(snapshot: &Snapshot) -> Result<()> {
     if snapshot.schema_version != SCHEMA_VERSION {
         bail!("Unsupported database schema version");
     }
-    if snapshot.devices.len() > 10_000 || snapshot.subnets.len() > 1_000 {
+    if snapshot.devices.len() > 10_000
+        || snapshot.subnets.len() > 1_000
+        || snapshot.ports.len() > 10_000
+    {
         bail!("Inventory limit reached");
     }
     let mut ids = HashSet::new();
@@ -188,6 +209,39 @@ pub fn validate(snapshot: &Snapshot) -> Result<()> {
                 .iter()
                 .find(|x| x.id == current.parent)
                 .ok_or_else(|| anyhow::anyhow!("Parent device not found"))?;
+        }
+    }
+    ids.clear();
+    let mut bindings = HashSet::new();
+    for p in &snapshot.ports {
+        if !valid_id(&p.id) || !ids.insert(p.id.clone()) {
+            bail!("Invalid or duplicate port ID");
+        }
+        if !["TCP", "UDP"].contains(&p.protocol.as_str()) {
+            bail!("Protocol must be TCP or UDP");
+        }
+        if !["Localhost", "LAN", "Tailscale", "Internet"].contains(&p.access.as_str()) {
+            bail!("Invalid access level");
+        }
+        if !["Active", "Planned", "Disabled"].contains(&p.status.as_str()) {
+            bail!("Invalid port status");
+        }
+        if p.host.trim().is_empty()
+            || p.host.len() > 100
+            || p.service.trim().is_empty()
+            || p.service.len() > 100
+        {
+            bail!("Host and service must contain 1–100 bytes");
+        }
+        if p.url.len() > 500 || p.notes.len() > 4000 {
+            bail!("A field exceeds its maximum length");
+        }
+        if !bindings.insert((
+            p.host.trim().to_ascii_lowercase(),
+            p.port,
+            p.protocol.clone(),
+        )) {
+            bail!("This host, port, and protocol are already recorded");
         }
     }
     Ok(())
