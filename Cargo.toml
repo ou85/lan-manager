@@ -1,0 +1,39 @@
+[package]
+name = "homelab-manager"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+description = "Self-hosted home lab inventory in a single Linux binary"
+
+[[bin]]
+name = "homelab"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+argon2 = "0.5"
+axum = "0.8"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+clap = { version = "4", features = ["derive"] }
+include_dir = "0.7"
+ipnet = { version = "2", features = ["serde"] }
+rand = "0.8"
+redb = "3"
+rpassword = "7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "sync"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+
+[dev-dependencies]
+tempfile = "3"
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

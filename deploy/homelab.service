@@ -1,0 +1,24 @@
+[Unit]
+Description=Home Lab Manager
+After=network.target
+
+[Service]
+Type=simple
+User=homelab
+Group=homelab
+StateDirectory=homelab
+StateDirectoryMode=0700
+UMask=0077
+ExecStart=/usr/local/bin/homelab --data-dir /var/lib/homelab serve --listen 0.0.0.0:8080
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/homelab
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

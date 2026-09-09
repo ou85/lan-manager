@@ -1,0 +1,11 @@
+/target/
+/data/
+/backups/
+*.redb
+*.redb.*
+.env
+.env.*
+/web/node_modules/
+/web/dist/
+*.log
+.DS_Store
