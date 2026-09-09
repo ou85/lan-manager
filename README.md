@@ -234,6 +234,8 @@ cargo build --locked --release
 
 The native executable is `target/release/homelab`. The web build must run before Cargo because its output is embedded at compile time. Rebuilding the UI causes Cargo to re-embed it on the next build.
 
+For development, `cargo run --release -- <command>` uses this checkout's ignored `data/` directory. A built executable run normally uses `data/` beside the executable instead. In both cases, `--data-dir` overrides the default.
+
 ### Static Linux binaries, no Docker
 
 ```bash

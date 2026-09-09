@@ -3,3 +3,8 @@ linker = "rust-lld"
 
 [target.aarch64-unknown-linux-musl]
 linker = "rust-lld"
+
+# `cargo run` uses the repository's ignored development database. A binary
+# started outside Cargo does not receive this variable and keeps data beside it.
+[env]
+HOMELAB_DEV_DATA_DIR = { value = "data", relative = true }

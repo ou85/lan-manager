@@ -20,7 +20,7 @@ use std::{
     about = "Home Lab Manager: one binary, your data."
 )]
 struct Cli {
-    /// Data directory (default: data/ next to this executable)
+    /// Data directory (default: development data/ with Cargo; otherwise data/ next to this executable)
     #[arg(long, global = true)]
     data_dir: Option<PathBuf>,
     #[command(subcommand)]
@@ -76,6 +76,15 @@ fn backup(store: &Store, path: &Path) -> Result<()> {
     drop(result);
     Ok(())
 }
+fn default_data_dir() -> Result<PathBuf> {
+    if let Some(dir) = std::env::var_os("HOMELAB_DEV_DATA_DIR") {
+        return Ok(PathBuf::from(dir));
+    }
+    Ok(std::env::current_exe()?
+        .parent()
+        .context("No executable directory")?
+        .join("data"))
+}
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
@@ -86,10 +95,7 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
     let dir = match cli.data_dir {
         Some(d) => d,
-        None => std::env::current_exe()?
-            .parent()
-            .context("No executable directory")?
-            .join("data"),
+        None => default_data_dir()?,
     };
     let file = dir.join("homelab.redb");
     match cli.command {
