@@ -249,6 +249,16 @@ Outputs:
 - `target/x86_64-unknown-linux-musl/release/homelab`
 - `target/aarch64-unknown-linux-musl/release/homelab`
 
+The musl targets produce portable, statically linked Linux binaries. The build host can be Linux, macOS, or Windows if Rust, `rustup`, Node.js, npm, and the required target toolchain are available. The target CPU architecture must match the destination machine.
+
+To remove this project's compiled artifacts before rebuilding:
+
+```bash
+cargo clean
+```
+
+This removes `target/` but keeps Cargo's downloaded dependency cache. To remove the dependency cache too, use `cargo cache -a` if the `cargo-cache` utility is installed, or remove the platform-specific Cargo registry and git cache manually.
+
 ### Checks
 
 ```bash
