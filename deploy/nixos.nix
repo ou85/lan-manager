@@ -23,7 +23,7 @@
       StateDirectory = "homelab";
       StateDirectoryMode = "0700";
       UMask = "0077";
-      ExecStart = "/opt/homelab/homelab --data-dir /var/lib/homelab serve --listen 0.0.0.0:8080";
+      ExecStart = "/opt/homelab/homelab --data-dir /var/lib/homelab serve --listen 0.0.0.0:8088";
       Restart = "on-failure";
       RestartSec = 5;
       NoNewPrivileges = true;
@@ -33,6 +33,6 @@
       ReadWritePaths = [ "/var/lib/homelab" ];
     };
   };
-  # Open TCP 8080 only on a trusted LAN/VPN interface, for example:
-  # networking.firewall.interfaces."wg0".allowedTCPPorts = [ 8080 ];
+  # Open TCP 8088 only on a trusted LAN/VPN interface, for example:
+  # networking.firewall.interfaces."wg0".allowedTCPPorts = [ 8088 ];
 }

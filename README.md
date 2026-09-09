@@ -76,7 +76,7 @@ Place the executable in a writable application directory, for example `/opt/home
    ./homelab serve
    ```
 
-3. Open `http://127.0.0.1:8080` and sign in.
+3. Open `http://127.0.0.1:8088` and sign in.
 
 4. Add your subnets under **IP plan**, then add your devices. Choose **Connected to** in a device card to build the map. Record target firmware and a **Next check date** to create a reminder.
 
@@ -106,21 +106,21 @@ The application creates its data directory with mode `0700` and database files w
 
 ## Network access
 
-The default listener is `127.0.0.1:8080`, available only on the server itself.
+The default listener is `127.0.0.1:8088`, available only on the server itself.
 
 For LAN/VPN access, bind to the server's LAN address:
 
 ```bash
-./homelab serve --listen 192.168.1.10:8080
+./homelab serve --listen 192.168.1.10:8088
 ```
 
 Or listen on every IPv4 interface:
 
 ```bash
-./homelab serve --listen 0.0.0.0:8080
+./homelab serve --listen 0.0.0.0:8088
 ```
 
-Use your actual server IP. Open `http://SERVER-IP:8080` from your browser. Restrict port 8080 to your trusted LAN/VPN in your firewall. Do not forward it directly from the internet.
+Use your actual server IP. Open `http://SERVER-IP:8088` from your browser. Restrict port 8088 to your trusted LAN/VPN in your firewall. Do not forward it directly from the internet.
 
 HTTP does not encrypt credentials or session cookies. A VPN encrypts its tunnel, but HTTP outside that tunnel is still HTTP. If your network is not fully trusted, put the app behind an HTTPS reverse proxy and start with `--secure-cookie`. This flag marks the cookie Secure; **it does not enable TLS**. The proxy must preserve the original `Host` header for same-origin checks and forward to a loopback-bound server. Do not use `--secure-cookie` with an ordinary remote HTTP URL: the browser will not send the cookie.
 

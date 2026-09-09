@@ -35,7 +35,7 @@ enum Command {
     },
     /// Run the web server
     Serve {
-        #[arg(long, default_value = "127.0.0.1:8080")]
+        #[arg(long, default_value = "127.0.0.1:8088")]
         listen: SocketAddr,
         /// Set the Secure session cookie flag (only behind HTTPS)
         #[arg(long)]
