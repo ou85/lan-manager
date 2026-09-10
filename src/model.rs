@@ -58,6 +58,12 @@ pub struct ServicePort {
     pub status: String,
     #[serde(default)]
     pub notes: String,
+    #[serde(default)]
+    pub last_checked: String,
+    #[serde(default)]
+    pub check_status: String,
+    #[serde(default)]
+    pub check_detail: String,
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Snapshot {
@@ -233,7 +239,12 @@ pub fn validate(snapshot: &Snapshot) -> Result<()> {
         {
             bail!("Host and service must contain 1–100 bytes");
         }
-        if p.url.len() > 500 || p.notes.len() > 4000 {
+        if p.url.len() > 500
+            || p.notes.len() > 4000
+            || p.last_checked.len() > 40
+            || p.check_status.len() > 40
+            || p.check_detail.len() > 500
+        {
             bail!("A field exceeds its maximum length");
         }
         if !bindings.insert((

@@ -10,6 +10,7 @@ A self-hosted home lab inventory that runs as **one Linux executable** with a **
 - Describe parent connections and display the resulting network topology.
 - Define IPv4 subnets with arbitrary CIDR prefixes (`/0` through `/32`), an optional gateway, and an optional VLAN ID.
 - Keep a manual register of TCP/UDP ports, services, access paths, and Cloudflare Tunnel URLs.
+- Check active port records from the server every five minutes, or on demand, and retain the latest TCP and optional HTTP(S) result.
 - Inspect assigned and available addresses and allocate the next available IP.
 - Record installed and target firmware versions.
 - Schedule in-app firmware checks, including due-today and overdue indicators.
@@ -20,7 +21,7 @@ A self-hosted home lab inventory that runs as **one Linux executable** with a **
 ### MVP boundaries
 
 - No network scanning, ping monitoring, SNMP polling, automatic firmware discovery, or automatic firmware installation.
-- Port and tunnel records are manually maintained; this version does not inspect listeners, firewalls, or Cloudflare configuration.
+- Port and tunnel records are manually maintained; this version does not inspect listeners, firewalls, or Cloudflare configuration. Its checks make outbound TCP and optional HTTP(S) connections from the server, not from a browser or an external monitoring location.
 - No email, push, or desktop notifications. Reminders are displayed when you open the application; overdue status is calculated from your browser's local date.
 - IPv4 only; one address and at most one parent connection per device.
 - Subnets cannot overlap, even when they have different VLAN IDs. VRFs and overlapping address spaces are not supported.
@@ -225,6 +226,7 @@ Required **on the build machine only**:
 - Rust/Cargo (manifest minimum: 1.89; CI uses the pinned toolchain in `rust-toolchain.toml`).
 - Node.js 22.13 or newer and npm for the React build.
 - Git.
+- Zig 0.15 or newer when building a static musl binary; it cross-compiles the C code used by HTTPS checks.
 
 ```bash
 git clone https://github.com/sound-lime/homelab-manager.git
@@ -246,7 +248,7 @@ cargo build --locked --release --target x86_64-unknown-linux-musl
 cargo build --locked --release --target aarch64-unknown-linux-musl
 ```
 
-`.cargo/config.toml` selects Rust's self-contained `rust-lld` linker for both targets. Current dependencies require no external C library. Builds are tested on Linux; other build-host platforms may need additional setup.
+`.cargo/config.toml` selects Rust's self-contained `rust-lld` linker and uses Zig as the C compiler for the x86_64 musl target. This avoids a distribution-specific musl GCC package. Builds are tested on Linux; other build-host platforms may need additional setup.
 
 Outputs:
 

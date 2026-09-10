@@ -1,0 +1,9 @@
+.ip-grid {
+  grid-template-columns: repeat(auto-fill, 1.875rem);
+  justify-content: start;
+}
+
+.ip-grid button {
+  width: 1.875rem;
+  min-width: 1.875rem;
+}

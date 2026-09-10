@@ -8,3 +8,4 @@ linker = "rust-lld"
 # started outside Cargo does not receive this variable and keeps data beside it.
 [env]
 HOMELAB_DEV_DATA_DIR = { value = "data", relative = true }
+CC_x86_64_unknown_linux_musl = { value = ".cargo/zig-x86_64-musl-cc.sh", relative = true, force = true }
