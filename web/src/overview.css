@@ -2,3 +2,7 @@
   display: grid;
   gap: 24px;
 }
+
+.check-time {
+  margin-top: 6px;
+}
