@@ -226,6 +226,7 @@ Required **on the build machine only**:
 - Rust/Cargo (manifest minimum: 1.89; CI uses the pinned toolchain in `rust-toolchain.toml`).
 - Node.js 22.13 or newer and npm for the React build.
 - Git.
+- Zig 0.15 or newer when building a static musl binary; it cross-compiles the C code used by HTTPS checks.
 
 ```bash
 git clone https://github.com/sound-lime/homelab-manager.git
@@ -247,7 +248,7 @@ cargo build --locked --release --target x86_64-unknown-linux-musl
 cargo build --locked --release --target aarch64-unknown-linux-musl
 ```
 
-`.cargo/config.toml` selects Rust's self-contained `rust-lld` linker for both targets. Current dependencies require no external C library. Builds are tested on Linux; other build-host platforms may need additional setup.
+`.cargo/config.toml` selects Rust's self-contained `rust-lld` linker and uses Zig as the C compiler for the x86_64 musl target. This avoids a distribution-specific musl GCC package. Builds are tested on Linux; other build-host platforms may need additional setup.
 
 Outputs:
 
