@@ -4,6 +4,7 @@ import {Network,Server,Router,HardDrive,Wifi,Monitor,LayoutDashboard,Cable,Refre
 import {allocation,ipNumber,ipString} from './ip.mjs';
 import './style.css';
 import './overview.css';
+import './ip-plan.css';
 type Device={id:string,name:string,model:string,type:string,ip:string,subnet_id:string,firmware:string,target:string,parent:string,due:string,status:string,location:string,notes:string};
 type Subnet={id:string,name:string,cidr:string,gateway:string,vlan:number|null};
 type ServicePort={id:string,port:number,protocol:string,host:string,service:string,access:string,url:string,status:string,notes:string,last_checked:string,check_status:string,check_detail:string};
