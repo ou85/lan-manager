@@ -171,7 +171,9 @@ async fn main() -> Result<()> {
             let store = Store::open(&file)?;
             let listener = tokio::net::TcpListener::bind(listen).await?;
             tracing::info!("Home Lab Manager listening on http://{listen}");
-            axum::serve(listener, server::app(AppState::new(store, secure_cookie)))
+            let state = AppState::new(store, secure_cookie);
+            server::start_port_checks(state.clone());
+            axum::serve(listener, server::app(state))
                 .with_graceful_shutdown(shutdown())
                 .await?;
         }

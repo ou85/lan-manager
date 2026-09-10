@@ -82,7 +82,7 @@ fn device(id: &str, ip: &str, subnet: &str, parent: &str) -> Value {
     json!({"id":id,"name":"lab-node","type":"Server","ip":ip,"subnet_id":subnet,"parent":parent,"status":"In service"})
 }
 fn service_port(id: &str, port: u16) -> Value {
-    json!({"id":id,"port":port,"protocol":"TCP","host":"ns2","service":"Home Lab Manager","access":"Tailscale","status":"Active"})
+    json!({"id":id,"port":port,"protocol":"TCP","host":"127.0.0.1","service":"Home Lab Manager","access":"Tailscale","status":"Active"})
 }
 #[tokio::test]
 async fn auth_csrf_crud_and_restart_persistence() {
@@ -155,6 +155,19 @@ async fn auth_csrf_crud_and_restart_persistence() {
         .status(),
         StatusCode::OK
     );
+    let checked = body(
+        call(
+            &app,
+            "POST",
+            &format!("/api/ports/{port}/check"),
+            None,
+            Some(&cookie),
+            Some(&csrf),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(checked["ports"][0]["check_status"], "Unreachable");
     let duplicate = device(&uuid::Uuid::new_v4().to_string(), "10.0.3.83", &subnet, "");
     assert_eq!(
         call(

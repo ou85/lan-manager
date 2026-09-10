@@ -19,10 +19,12 @@ use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
-use tokio::sync::Semaphore;
+use tokio::{sync::Semaphore, time};
 
 static ASSETS: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/web/dist");
 const SESSION_LIFETIME: Duration = Duration::from_secs(8 * 60 * 60);
+const PORT_CHECK_TIMEOUT: Duration = Duration::from_secs(5);
+const PORT_CHECK_INTERVAL: Duration = Duration::from_secs(5 * 60);
 #[derive(Clone)]
 pub struct AppState {
     pub store: Arc<Store>,
@@ -30,6 +32,7 @@ pub struct AppState {
     attempts: Arc<Mutex<VecDeque<Instant>>>,
     password_gate: Arc<Semaphore>,
     secure_cookie: bool,
+    http: reqwest::Client,
 }
 struct Session {
     csrf: String,
@@ -43,8 +46,113 @@ impl AppState {
             attempts: Default::default(),
             password_gate: Arc::new(Semaphore::new(1)),
             secure_cookie,
+            http: reqwest::Client::builder()
+                .timeout(PORT_CHECK_TIMEOUT)
+                .redirect(reqwest::redirect::Policy::none())
+                .build()
+                .expect("HTTP client configuration"),
         }
     }
+}
+struct CheckResult {
+    status: String,
+    detail: String,
+}
+async fn probe_port(port: &ServicePort, http: &reqwest::Client) -> CheckResult {
+    let tcp_target = format!("{}:{}", port.host, port.port);
+    let tcp = time::timeout(
+        PORT_CHECK_TIMEOUT,
+        tokio::net::TcpStream::connect(&tcp_target),
+    )
+    .await;
+    let (tcp_ok, tcp_detail) = match tcp {
+        Ok(Ok(_)) => (true, "TCP connected".to_owned()),
+        Ok(Err(e)) => (false, format!("TCP: {e}")),
+        Err(_) => (false, "TCP connection timed out".into()),
+    };
+    if port.url.is_empty() {
+        return CheckResult {
+            status: if tcp_ok { "Reachable" } else { "Unreachable" }.into(),
+            detail: tcp_detail,
+        };
+    }
+    let (url_ok, url_detail) = match http.get(&port.url).send().await {
+        Ok(response) => (true, format!("URL returned {}", response.status())),
+        Err(e) => (false, format!("URL: {e}")),
+    };
+    CheckResult {
+        status: match (tcp_ok, url_ok) {
+            (true, true) => "Reachable",
+            (false, false) => "Unreachable",
+            _ => "Partial",
+        }
+        .into(),
+        detail: format!("{tcp_detail}; {url_detail}"),
+    }
+}
+async fn check_port(state: &AppState, id: &str) -> ApiResult<Inventory> {
+    let id = id.to_owned();
+    let port = {
+        let store = state.store.clone();
+        tokio::task::spawn_blocking(move || {
+            store
+                .read()?
+                .ports
+                .into_iter()
+                .find(|p| p.id == id)
+                .ok_or_else(|| anyhow::anyhow!("Port not found"))
+        })
+        .await
+        .map_err(internal)?
+        .map_err(bad)?
+    };
+    let result = probe_port(&port, &state.http).await;
+    let checked_at = chrono::Utc::now().to_rfc3339();
+    let id = port.id;
+    let store = state.store.clone();
+    let snapshot = tokio::task::spawn_blocking(move || {
+        store.update(|s| {
+            if let Some(port) = s.ports.iter_mut().find(|p| p.id == id) {
+                port.last_checked = checked_at;
+                port.check_status = result.status;
+                port.check_detail = result.detail;
+            }
+            Ok(())
+        })
+    })
+    .await
+    .map_err(internal)?
+    .map_err(internal)?;
+    Ok(snapshot.into())
+}
+pub fn start_port_checks(state: AppState) {
+    tokio::spawn(async move {
+        let mut interval = time::interval(PORT_CHECK_INTERVAL);
+        loop {
+            interval.tick().await;
+            let ports = match tokio::task::spawn_blocking({
+                let store = state.store.clone();
+                move || store.read().map(|s| s.ports)
+            })
+            .await
+            {
+                Ok(Ok(ports)) => ports,
+                Ok(Err(e)) => {
+                    tracing::error!("Could not load port checks: {e}");
+                    continue;
+                }
+                Err(e) => {
+                    tracing::error!("Could not load port checks: {e}");
+                    continue;
+                }
+            };
+            for port in ports.into_iter().filter(|p| p.status == "Active") {
+                if let Err(e) = check_port(&state, &port.id).await {
+                    tracing::warn!("Port check failed for {}: {}", port.service, e.1);
+                }
+            }
+        }
+    });
 }
 type ApiResult<T> = Result<T, ApiError>;
 pub struct ApiError(StatusCode, String);
@@ -356,8 +464,14 @@ async fn save_port(
     let s = tokio::task::spawn_blocking(move || {
         state.store.update(|s| {
             if let Some(old) = s.ports.iter_mut().find(|x| x.id == port.id) {
+                port.last_checked = old.last_checked.clone();
+                port.check_status = old.check_status.clone();
+                port.check_detail = old.check_detail.clone();
                 *old = port;
             } else {
+                port.last_checked.clear();
+                port.check_status.clear();
+                port.check_detail.clear();
                 s.ports.push(port);
             }
             Ok(())
@@ -382,6 +496,12 @@ async fn delete_port(
     .map_err(internal)?
     .map_err(bad)?;
     Ok(Json(s.into()))
+}
+async fn run_port_check(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> ApiResult<Json<Inventory>> {
+    Ok(Json(check_port(&state, &id).await?))
 }
 async fn assets(req: Request) -> Response {
     if !matches!(*req.method(), Method::GET | Method::HEAD) {
@@ -426,6 +546,7 @@ pub fn app(state: AppState) -> Router {
         .route("/subnets/{id}", axum::routing::delete(delete_subnet))
         .route("/ports", post(save_port))
         .route("/ports/{id}", axum::routing::delete(delete_port))
+        .route("/ports/{id}/check", post(run_port_check))
         .route_layer(middleware::from_fn_with_state(state.clone(), protect));
     Router::new()
         .nest("/api", protected.route("/login", post(login)))
